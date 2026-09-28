@@ -8,8 +8,20 @@
     RM={Scale=0.94},SS={Scale=0.94},SScon={Scale=0.94},TT={Scale=MatchLowercase,FakeStretch=0.9},
     DefaultFeatures={Ligatures=Common}
   ]{plex-otf}
-  % \usepackage[Scale=MatchUppercase]{juliamono}
+  \usepackage[Scale=MatchUppercase]{juliamono}
 }{
   %% TinyTeX
   \usepackage{libertine}
+}
+
+%% Consolas contains Cyrillic and Greek glyphs used in Julia code and output.
+\usepackage{fontspec}
+\setmonofont{Consolas}
+
+%% Wrap long highlighted code lines instead of clipping them at the page edge.
+\usepackage{fvextra}
+\AtBeginDocument{%
+  \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{%
+    commandchars=\\\{\},breaklines=true,breakanywhere=true%
+  }%
 }
