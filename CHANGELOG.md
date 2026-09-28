@@ -1,5 +1,5 @@
-# 1.0.0 (2026-09-28)
+# [1.1.0](https://gitverse.ru/2222/aayurchenko/2026-1--study--security-modeling/compare/v1.0.0...v1.1.0) (2026-09-28)
 
 ### Features
 
-* **main:** make course structure ([ed2ae3c](https://gitverse.ru/2222/aayurchenko/2026-1--study--security-modeling/commits/ed2ae3c4bf0661a1053032c5c7dc1a8114b9b883))
+* **lab:** add exponential growth experiments ([47d6ea5](https://gitverse.ru/2222/aayurchenko/2026-1--study--security-modeling/commits/47d6ea552237c6918f1c3c4d1509988bc648cf6d))
