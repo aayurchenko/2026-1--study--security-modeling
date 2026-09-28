@@ -13,7 +13,7 @@ crossref:
   lol-title: Листинги
 format: # Formats
   beamer: # Pdf output format
-    toc: true
+    toc: false
     toc-title: Содержание
     number-sections: false
     number-depth: 2
