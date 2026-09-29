@@ -10,9 +10,5 @@
     "commitizen": {
       "path": "cz-customizable"
     }
-  },
-  "devDependencies": {
-    "commitizen": "4.3.2",
-    "cz-customizable": "7.5.4"
   }
 }
