@@ -1,0 +1,317 @@
+# # Моделирование конфликта «Защитник–Нападающий»
+#
+# **Цель работы:** построить игровую модель противостояния защитника и
+# нападающего, найти равновесные стратегии и исследовать, как ценность активов
+# влияет на действия игроков и их ожидаемые выигрыши.
+#
+# В системе рассматриваются два актива. Нападающий выбирает один актив для
+# атаки, а защитник одновременно выбирает один актив для усиленной защиты.
+# Решения принимаются независимо: игроки не знают выбор друг друга заранее.
+#
+# ## Подготовка проекта и загрузка пакетов
+#
+# DrWatson активирует окружение проекта и предоставляет функции для работы
+# с каталогами. DataFrames и CSV используются для таблицы результатов,
+# Plots — для визуализации, LinearAlgebra — для операций с матрицами и
+# векторами, Statistics — для вычисления средних значений.
+
+using DrWatson
+@quickactivate "project"
+
+using LinearAlgebra
+using DataFrames
+using CSV
+using Plots
+using Statistics
+
+# ## Платёжные матрицы
+#
+# Пусть $V_i$ — ценность $i$-го актива, $c_a$ — стоимость атаки,
+# $c_d$ — стоимость защиты. Строка матрицы соответствует выбору нападающего,
+# а столбец — выбору защитника.
+#
+# Если игроки выбрали разные активы, атака успешна:
+#
+# $$
+# A_{ij}=V_i-c_a, \qquad D_{ij}=-V_i-c_d, \qquad i\ne j.
+# $$
+#
+# Если атакуется защищённый актив, атака отражается:
+#
+# $$
+# A_{ii}=-c_a, \qquad D_{ii}=-c_d.
+# $$
+
+function build_payoff_matrices(
+    V::Vector{Float64},
+    c_a::Float64,
+    c_d::Float64,
+)
+    n = length(V)
+    A = zeros(n, n)
+    D = zeros(n, n)
+
+    for i = 1:n, j = 1:n
+        if i != j
+            A[i, j] = V[i] - c_a
+            D[i, j] = -V[i] - c_d
+        else
+            A[i, j] = -c_a
+            D[i, j] = -c_d
+        end
+    end
+
+    return A, D
+end
+
+# ## Поиск равновесия Нэша
+#
+# Сначала проверяются четыре возможные пары чистых стратегий. Клетка является
+# равновесием Нэша, если выбранная строка — лучший ответ нападающего на столбец,
+# а выбранный столбец — лучший ответ защитника на строку.
+#
+# Если чистого равновесия нет, вычисляется смешанное. Векторы
+# $\mathbf p=(p_1,p_2)$ и $\mathbf q=(q_1,q_2)$ задают вероятности действий
+# нападающего и защитника. Вероятности подбираются так, чтобы другой игрок был
+# безразличен между своими чистыми стратегиями.
+
+function mixed_nash_2x2(
+    A::Matrix{Float64},
+    D::Matrix{Float64},
+)
+    size(A) == (2, 2) || error("Матрица A должна иметь размер 2×2")
+    size(D) == (2, 2) || error("Матрица D должна иметь размер 2×2")
+
+    for i = 1:2, j = 1:2
+        attacker_best_response = A[i, j] >= A[3 - i, j]
+        defender_best_response = D[i, j] >= D[i, 3 - j]
+
+        if attacker_best_response && defender_best_response
+            p = zeros(2)
+            p[i] = 1.0
+
+            q = zeros(2)
+            q[j] = 1.0
+
+            return (p=p, q=q, type="pure")
+        end
+    end
+
+    denominator_A =
+        (A[1, 1] - A[2, 1]) -
+        (A[1, 2] - A[2, 2])
+
+    q_1 = if abs(denominator_A) > 1e-10
+        clamp((A[2, 2] - A[1, 2]) / denominator_A, 0.0, 1.0)
+    else
+        0.5
+    end
+
+    denominator_D =
+        (D[1, 1] - D[1, 2]) -
+        (D[2, 1] - D[2, 2])
+
+    p_1 = if abs(denominator_D) > 1e-10
+        clamp((D[2, 2] - D[2, 1]) / denominator_D, 0.0, 1.0)
+    else
+        0.5
+    end
+
+    p = [p_1, 1.0 - p_1]
+    q = [q_1, 1.0 - q_1]
+
+    return (p=p, q=q, type="mixed")
+end
+
+# ## Расчёт одного варианта
+#
+# Для одного набора параметров строятся матрицы и находится равновесие.
+# Ожидаемые выигрыши в смешанных стратегиях рассчитываются как
+#
+# $$
+# U_A=\mathbf p^T A\mathbf q, \qquad
+# U_D=\mathbf p^T D\mathbf q.
+# $$
+#
+# Результат возвращается в плоском словаре, который удобно преобразовать
+# в строку таблицы.
+
+function run_simulation(params::Dict)
+    V = params["V"]
+    c_a = params["c_a"]
+    c_d = params["c_d"]
+
+    A, D = build_payoff_matrices(V, c_a, c_d)
+    equilibrium = mixed_nash_2x2(A, D)
+
+    if equilibrium.type == "pure"
+        i = argmax(equilibrium.p)
+        j = argmax(equilibrium.q)
+        U_A = A[i, j]
+        U_D = D[i, j]
+    else
+        U_A = equilibrium.p' * A * equilibrium.q
+        U_D = equilibrium.p' * D * equilibrium.q
+    end
+
+    return Dict(
+        "p_1" => equilibrium.p[1],
+        "p_2" => equilibrium.p[2],
+        "q_1" => equilibrium.q[1],
+        "q_2" => equilibrium.q[2],
+        "type" => equilibrium.type,
+        "UA" => U_A,
+        "UD" => U_D,
+        "V1" => V[1],
+        "V2" => V[2],
+        "c_a" => c_a,
+        "c_d" => c_d,
+    )
+end
+
+# ## Набор параметров эксперимента
+#
+# Для обеих ценностей используются значения 5, 10 и 15, а для стоимости
+# атаки и защиты — 0, 1 и 3. Полная сетка содержит
+# $3\cdot3\cdot3\cdot3=81$ вариант.
+
+function generate_params()
+    params_list = Dict[]
+    values = [5.0, 10.0, 15.0]
+    attack_costs = [0.0, 1.0, 3.0]
+    defense_costs = [0.0, 1.0, 3.0]
+
+    for v_1 in values, v_2 in values
+        for c_a in attack_costs, c_d in defense_costs
+            push!(
+                params_list,
+                Dict(
+                    "V" => [v_1, v_2],
+                    "c_a" => c_a,
+                    "c_d" => c_d,
+                ),
+            )
+        end
+    end
+
+    return params_list
+end
+
+# ## Выполнение серии экспериментов
+#
+# Все варианты рассчитываются заново и объединяются в DataFrame. Таблица
+# сохраняется в `data/sims/results.csv`, чтобы её можно было анализировать
+# отдельно от вычислительного сценария.
+
+function main_simulations()
+    rows = Dict[]
+
+    for params in generate_params()
+        push!(rows, run_simulation(params))
+    end
+
+    results = DataFrame(rows)
+    mkpath(datadir("sims"))
+    CSV.write(datadir("sims", "results.csv"), results)
+
+    return results
+end
+
+
+println("Запуск серии экспериментов...")
+results = main_simulations()
+println("Рассчитано вариантов: ", nrow(results))
+println("Результаты сохранены в: ", datadir("sims", "results.csv"))
+
+# Покажем первые строки таблицы в Quarto-документе и Jupyter Notebook.
+display(first(results, 10))
+
+# ## Типы найденных равновесий
+#
+# Подсчитаем, сколько раз встретился каждый тип решения. При положительных
+# ценностях активов в базовой модели ожидается смешанное равновесие: если один
+# игрок использует постоянное действие, второй может выбрать выгодный ответ.
+
+equilibrium_counts = combine(groupby(results, :type), nrow => :count)
+display(equilibrium_counts)
+
+# ## Вероятность атаки первого актива
+#
+# Для визуализации выберем результаты с $c_a=c_d=1$. По оси абсцисс отложим
+# отношение ценностей $V_1/V_2$, по оси ординат — равновесную вероятность
+# атаки первого актива $p_1$.
+#
+# В базовой модели получается
+#
+# $$
+# p_1=\frac{V_2}{V_1+V_2}, \qquad
+# q_1=\frac{V_1}{V_1+V_2}.
+# $$
+#
+# Поэтому рост относительной ценности первого актива приводит к более частой
+# его защите и к снижению равновесной вероятности атаки на него.
+
+filtered = results[
+    (results.c_a .== 1.0) .&
+    (results.c_d .== 1.0),
+    :,
+]
+
+ratio = filtered.V1 ./ filtered.V2
+
+strategy_plot = scatter(
+    ratio,
+    filtered.p_1;
+    group=filtered.type,
+    xlabel="V₁ / V₂",
+    ylabel="p₁ — вероятность атаки актива 1",
+    title="Стратегия нападающего при cₐ = 1, c_d = 1",
+    legend=:topright,
+    markersize=6,
+)
+
+mkpath(plotsdir())
+savefig(strategy_plot, plotsdir("p1_vs_ratio.png"))
+display(strategy_plot)
+
+# ## Тепловая карта выигрыша нападающего
+#
+# Сгруппируем результаты по ценностям активов и построим тепловую карту
+# среднего ожидаемого выигрыша нападающего. При фиксированных затратах
+# выигрыш растёт вместе с потенциальной ценностью успешной атаки.
+
+grouped_results = groupby(filtered, [:V1, :V2])
+summary = combine(grouped_results, :UA => mean => :UA_mean)
+
+V_1_values = sort(unique(summary.V1))
+V_2_values = sort(unique(summary.V2))
+
+payoff_plot = heatmap(
+    V_1_values,
+    V_2_values,
+    (x, y) -> summary[
+        (summary.V1 .== x) .&
+        (summary.V2 .== y),
+        :UA_mean,
+    ][1];
+    xlabel="Ценность первого актива V₁",
+    ylabel="Ценность второго актива V₂",
+    title="Средний выигрыш нападающего",
+    colorbar_title="Uₐ",
+)
+
+savefig(payoff_plot, plotsdir("heatmap_UA.png"))
+display(payoff_plot)
+
+# ## Вывод
+#
+# Для всех 81 вариантов параметров построены платёжные матрицы и вычислены
+# равновесные стратегии. Смешивание действий делает выбор игроков
+# непредсказуемым и не позволяет сопернику получить преимущество простой
+# сменой чистой стратегии.
+#
+# В рассматриваемой модели затраты $c_a$ и $c_d$ одинаковы для всех активов.
+# Поэтому они сдвигают ожидаемые выигрыши, но не изменяют равновесные
+# вероятности выбора активов. Чтобы затраты влияли на сами стратегии, модель
+# следует расширить разными затратами для активов или возможностью отказаться
+# от атаки и защиты; такое расширение в данной работе не выполнялось.

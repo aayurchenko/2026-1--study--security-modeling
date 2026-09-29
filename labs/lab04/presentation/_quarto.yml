@@ -4,7 +4,6 @@ project:
 
 standalone: true
 self-contained: true
-embed-resources: true
 slide-level: 2
 lang: ru-RU
 crossref:
@@ -16,12 +15,12 @@ format: # Formats
     toc: true
     toc-title: Содержание
     number-sections: false
-    number-depth: 2
+    number-depth: 1
     colorlinks: false
-    toc-depth: 2
+    toc-depth: 1
     aspectratio: 169
     section-titles: true
-    incremental: false
+    incremental: true
     navigation: horizontal
     csquotes: true
     indent: true
@@ -35,7 +34,5 @@ format: # Formats
     smaller: true
     slide-number: true
     output-ext: html
-    theme:
-      - _resources/css/fonts.scss
-      - beige
+    theme: beige
     logo: _resources/image/logo_rudn.png
