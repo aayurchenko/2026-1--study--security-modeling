@@ -1,6 +1,6 @@
 {
   "name": "security-modeling",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Методы математического моделирования в кибербезопасности",
   "main": "index.js",
   "repository": "ssh://git@gitverse.ru:2222/aayurchenko/2026-1--study--security-modeling.git",
@@ -10,9 +10,5 @@
     "commitizen": {
       "path": "cz-customizable"
     }
-  },
-  "devDependencies": {
-    "commitizen": "4.3.2",
-    "cz-customizable": "7.5.4"
   }
 }
